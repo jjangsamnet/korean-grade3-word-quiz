@@ -138,10 +138,11 @@ export const ReviewNotebookModal: React.FC<ReviewNotebookModalProps> = ({ histor
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => playTTS(item)}
-                      className="p-1 rounded-lg text-amber-800 hover:bg-amber-100 transition-colors"
-                      title="소리로 해설 듣기"
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-amber-900 bg-amber-100 hover:bg-amber-200 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                      title="선생님 해설 듣기 (남성 밝은 톤)"
                     >
-                      <Volume2 className="w-4 h-4" />
+                      <Volume2 className="w-3.5 h-3.5 text-amber-800" />
+                      <span className="hidden sm:inline">해설 듣기</span>
                     </button>
                     {item.isCorrect ? (
                       <span className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg">

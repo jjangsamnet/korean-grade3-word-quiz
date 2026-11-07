@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Volume2, Lightbulb, BookMarked, Scissors, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { Volume2, VolumeX, Lightbulb, BookMarked, Scissors, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import { Question } from '../types/game';
 import { sounds } from '../utils/soundEffects';
 
@@ -39,17 +39,71 @@ export const QuizCard: React.FC<QuizCardProps> = ({
   onUseFiftyFifty,
   availableFiftyFifty,
 }) => {
-  const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+  const [isPlayingQuestionTTS, setIsPlayingQuestionTTS] = useState(false);
+  const [isPlayingExplanationTTS, setIsPlayingExplanationTTS] = useState(false);
 
-  const handleTTS = () => {
+  // Play question text in bright male tone
+  const handleQuestionTTS = () => {
     sounds.playPop();
-    setIsPlayingTTS(true);
+    if (isPlayingQuestionTTS) {
+      sounds.stopSpeaking();
+      setIsPlayingQuestionTTS(false);
+      return;
+    }
+    sounds.stopSpeaking();
+    setIsPlayingExplanationTTS(false);
+    setIsPlayingQuestionTTS(true);
+
     const fullSpeech = `${question.question}. ${question.contextSentence?.replace('[ ? ]', '빈칸') || ''}`;
-    sounds.speak(fullSpeech);
-    setTimeout(() => setIsPlayingTTS(false), 3000);
+    sounds.speak(fullSpeech, () => {
+      setIsPlayingQuestionTTS(false);
+    });
+  };
+
+  // Play explanation text in bright male tone
+  const handleExplanationTTS = () => {
+    sounds.playPop();
+    if (isPlayingExplanationTTS) {
+      sounds.stopSpeaking();
+      setIsPlayingExplanationTTS(false);
+      return;
+    }
+    sounds.stopSpeaking();
+    setIsPlayingQuestionTTS(false);
+    setIsPlayingExplanationTTS(true);
+
+    const prefix = isCorrect ? '정답입니다! ' : `정답은 ${question.correctAnswer}입니다. `;
+    const speech = `${prefix}${question.explanation}`;
+    sounds.speak(speech, () => {
+      setIsPlayingExplanationTTS(false);
+    });
   };
 
   const isCorrect = selectedOption === question.correctAnswer;
+
+  // Auto-play explanation in bright male tone when answer is submitted
+  useEffect(() => {
+    if (isAnswerSubmitted) {
+      const timer = setTimeout(() => {
+        setIsPlayingExplanationTTS(true);
+        const prefix = isCorrect ? '정답입니다! ' : `정답은 ${question.correctAnswer}입니다. `;
+        const speech = `${prefix}${question.explanation}`;
+        sounds.speak(speech, () => {
+          setIsPlayingExplanationTTS(false);
+        });
+      }, 500);
+
+      return () => {
+        clearTimeout(timer);
+        sounds.stopSpeaking();
+        setIsPlayingExplanationTTS(false);
+      };
+    } else {
+      sounds.stopSpeaking();
+      setIsPlayingExplanationTTS(false);
+      setIsPlayingQuestionTTS(false);
+    }
+  }, [isAnswerSubmitted, isCorrect, question]);
 
   return (
     <div
@@ -70,16 +124,16 @@ export const QuizCard: React.FC<QuizCardProps> = ({
 
         {/* TTS Read-Aloud Button */}
         <button
-          onClick={handleTTS}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all border ${
-            isPlayingTTS
-              ? 'bg-amber-400 text-amber-950 border-amber-500 scale-95'
-              : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200'
+          onClick={handleQuestionTTS}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+            isPlayingQuestionTTS
+              ? 'bg-amber-400 text-amber-950 border-amber-500 scale-95 shadow-inner'
+              : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200 shadow-2xs'
           }`}
-          title="문제를 소리로 들어보세요"
+          title="문제를 밝은 남성 선생님 목소리로 들어보세요"
         >
-          <Volume2 className={`w-4 h-4 ${isPlayingTTS ? 'animate-bounce text-amber-950' : 'text-amber-700'}`} />
-          <span>{isPlayingTTS ? '읽어주는 중...' : '소리로 듣기'}</span>
+          <Volume2 className={`w-4 h-4 ${isPlayingQuestionTTS ? 'animate-bounce text-amber-950' : 'text-amber-700'}`} />
+          <span>{isPlayingQuestionTTS ? '문제 읽는 중...' : '문제 듣기'}</span>
         </button>
       </div>
 
@@ -222,7 +276,7 @@ export const QuizCard: React.FC<QuizCardProps> = ({
                 : 'bg-rose-50 border-rose-300 text-rose-950'
             }`}
           >
-            <div className="space-y-1">
+            <div className="space-y-1.5 flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-jua text-base sm:text-lg font-bold">
                   {isCorrect ? '🎉 정답입니다! 최고예요!' : '💡 아쉬워요! 정답을 확인해 보세요.'}
@@ -236,14 +290,37 @@ export const QuizCard: React.FC<QuizCardProps> = ({
               <p className="text-xs sm:text-sm font-medium opacity-90 leading-relaxed">
                 {question.explanation}
               </p>
+
+              {/* Voice Explanation Audio Player (Bright Male Tone) */}
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-black/5">
+                <button
+                  type="button"
+                  onClick={handleExplanationTTS}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                    isPlayingExplanationTTS
+                      ? 'bg-amber-400 text-amber-950 border-amber-500 shadow-inner scale-98'
+                      : 'bg-white hover:bg-amber-50 text-slate-800 border-slate-300 shadow-2xs active:scale-95'
+                  }`}
+                  title="설명을 밝은 남성 선생님 목소리로 들어보세요"
+                >
+                  <Volume2 className={`w-3.5 h-3.5 ${isPlayingExplanationTTS ? 'animate-bounce text-amber-950' : 'text-amber-700'}`} />
+                  <span>
+                    {isPlayingExplanationTTS ? '선생님 설명 읽어주는 중...' : '선생님 설명 듣기 (남성 음성)'}
+                  </span>
+                </button>
+                <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
+                  🧑‍🏫 밝은 남성 선생님 해설
+                </span>
+              </div>
             </div>
 
             <button
               onClick={() => {
+                sounds.stopSpeaking();
                 sounds.playPop();
                 onNextQuestion();
               }}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-jua text-base rounded-2xl shadow-md border-b-3 border-amber-700 transition-all shrink-0"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-jua text-base rounded-2xl shadow-md border-b-3 border-amber-700 transition-all shrink-0 cursor-pointer"
             >
               <span>{questionNumber >= totalQuestions ? '결과 확인하기' : '다음 문제'}</span>
               <ArrowRight className="w-5 h-5" />

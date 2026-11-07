@@ -220,17 +220,65 @@ class SoundEngine {
     }
   }
 
-  public speak(text: string) {
-    if (this.isMuted || !('speechSynthesis' in window)) return;
+  private getBrightMaleKoreanVoice(): SpeechSynthesisVoice | null {
+    if (!('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    const koreanVoices = voices.filter(
+      (v) => v.lang === 'ko-KR' || v.lang === 'ko_KR' || v.lang.startsWith('ko')
+    );
+    if (koreanVoices.length === 0) return null;
+
+    // Search for Korean male voice identifiers (e.g., InJoon, NamMin, GwangSeok, Male, 남성)
+    const maleKeywords = ['male', 'injoon', 'nammin', 'gwangseok', '남성', '남자', 'minsu', 'hyunsu', 'dae'];
+    const matchedMale = koreanVoices.find((v) =>
+      maleKeywords.some((keyword) => v.name.toLowerCase().includes(keyword))
+    );
+    if (matchedMale) return matchedMale;
+
+    return koreanVoices[0];
+  }
+
+  /**
+   * Speak with a bright, energetic male teacher tone for 3rd grade students
+   */
+  public speak(text: string, onEnd?: () => void) {
+    if (this.isMuted || !('speechSynthesis' in window)) {
+      if (onEnd) onEnd();
+      return;
+    }
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ko-KR';
-      utterance.rate = 0.95; // slightly comfortable for 3rd graders
-      utterance.pitch = 1.1; // friendly tone
+
+      const voice = this.getBrightMaleKoreanVoice();
+      if (voice) {
+        utterance.voice = voice;
+        const voiceNameLower = voice.name.toLowerCase();
+        const isExplicitMale = ['male', 'injoon', 'nammin', 'gwangseok', '남성', '남자'].some(k => voiceNameLower.includes(k));
+        // If explicit male voice, set slightly higher pitch for bright cheerfulness
+        // If fallback voice, pitch 0.88 lowers the tone into a warm, bright male range
+        utterance.pitch = isExplicitMale ? 1.05 : 0.88;
+      } else {
+        utterance.pitch = 0.88; // Bright male tenor pitch
+      }
+
+      utterance.rate = 0.98; // Clear, comfortable teaching speed
+
+      if (onEnd) {
+        utterance.onend = () => onEnd();
+        utterance.onerror = () => onEnd();
+      }
+
       window.speechSynthesis.speak(utterance);
     } catch {
-      // ignore
+      if (onEnd) onEnd();
+    }
+  }
+
+  public stopSpeaking() {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
     }
   }
 }

@@ -15,6 +15,7 @@ interface GameOverModalProps {
   learnerNickname?: string | null;
   onRestart: () => void;
   onOpenNotebook: () => void;
+  onOpenLeaderboard?: () => void;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -28,6 +29,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   learnerNickname,
   onRestart,
   onOpenNotebook,
+  onOpenLeaderboard,
 }) => {
   const accuracy = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
 
@@ -160,16 +162,31 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               <span>3분 낱말 다시 도전하기!</span>
             </button>
 
-            <button
-              onClick={() => {
-                sounds.playPop();
-                onOpenNotebook();
-              }}
-              className="w-full flex items-center justify-center gap-2 py-3 px-6 bg-white hover:bg-amber-50 active:scale-98 text-amber-900 font-bold text-sm rounded-2xl border-2 border-amber-300 shadow-xs transition-all cursor-pointer"
-            >
-              <BookOpen className="w-4 h-4 text-amber-700" />
-              <span>오늘 배운 낱말 복습노트 열기</span>
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {onOpenLeaderboard && (
+                <button
+                  onClick={() => {
+                    sounds.playPop();
+                    onOpenLeaderboard();
+                  }}
+                  className="flex items-center justify-center gap-1.5 py-2.5 px-4 bg-amber-100 hover:bg-amber-200 active:scale-98 text-amber-950 font-bold text-xs sm:text-sm rounded-2xl border border-amber-300 shadow-xs transition-all cursor-pointer"
+                >
+                  <Trophy className="w-4 h-4 text-amber-700" />
+                  <span>실시간 랭킹 보기</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  sounds.playPop();
+                  onOpenNotebook();
+                }}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-4 bg-white hover:bg-amber-50 active:scale-98 text-amber-900 font-bold text-xs sm:text-sm rounded-2xl border-2 border-amber-300 shadow-xs transition-all cursor-pointer"
+              >
+                <BookOpen className="w-4 h-4 text-amber-700" />
+                <span>낱말 복습노트</span>
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>

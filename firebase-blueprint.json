@@ -1,0 +1,65 @@
+{
+  "entities": {
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "A student game completion record for the grade 3 Korean word game",
+      "type": "object",
+      "properties": {
+        "nickname": {
+          "type": "string",
+          "description": "Student nickname or explorer name",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "score": {
+          "type": "number",
+          "description": "Final score earned in the 3-minute game"
+        },
+        "stars": {
+          "type": "number",
+          "description": "Number of stars achieved (1 to 3)"
+        },
+        "accuracy": {
+          "type": "number",
+          "description": "Accuracy percentage (0 to 100)"
+        },
+        "maxCombo": {
+          "type": "number",
+          "description": "Maximum combo streak achieved"
+        },
+        "levelsCleared": {
+          "type": "number",
+          "description": "Highest level cleared (1 to 5)"
+        },
+        "badgeTitle": {
+          "type": "string",
+          "description": "Honorary badge title earned",
+          "maxLength": 50
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the record was saved"
+        }
+      },
+      "required": [
+        "nickname",
+        "score",
+        "stars",
+        "accuracy",
+        "maxCombo",
+        "levelsCleared",
+        "badgeTitle",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/leaderboard/{entryId}": {
+      "schema": {
+        "$ref": "#/entities/LeaderboardEntry"
+      },
+      "description": "Public realtime leaderboard records for students"
+    }
+  }
+}

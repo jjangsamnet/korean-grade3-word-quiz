@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { Play, RotateCcw, Award, BookOpen, Clock, Heart, Flame, Sparkles, ChevronRight, HelpCircle } from 'lucide-react';
+import { Play, RotateCcw, Award, BookOpen, Clock, Heart, Flame, Sparkles, ChevronRight, HelpCircle, Trophy } from 'lucide-react';
 
 import { Question, GameState, UserAnswerHistory } from './types/game';
 import { LEVEL_INFOS, getGameQuestions } from './data/quizData';
@@ -14,6 +14,13 @@ import { GameOverModal } from './components/GameOverModal';
 import { ReviewNotebookModal } from './components/ReviewNotebookModal';
 import { InstructionsModal } from './components/InstructionsModal';
 import { LoginScreen } from './components/LoginScreen';
+import { LeaderboardModal } from './components/LeaderboardModal';
+import {
+  LeaderboardRecord,
+  subscribeToLeaderboard,
+  saveScoreToLeaderboard,
+  testFirestoreConnection,
+} from './utils/firebase';
 
 const TOTAL_GAME_TIME_SEC = 180; // 3 minutes total
 const QUESTIONS_PER_LEVEL = 3;
@@ -68,6 +75,11 @@ export default function App() {
     setGameState('READY');
   };
 
+  // Leaderboard States (Real-time Firestore)
+  const [leaderboardRecords, setLeaderboardRecords] = useState<LeaderboardRecord[]>([]);
+  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(true);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+
   // Audio & Modals
   const [isMuted, setIsMuted] = useState(sounds.isMuted);
   const [showInstructions, setShowInstructions] = useState(false);
@@ -89,6 +101,50 @@ export default function App() {
   const currentLevel = currentQuestion ? currentQuestion.level : 1;
   const questionIndexInLevel = currentIndex % QUESTIONS_PER_LEVEL;
   const isFever = combo >= 3;
+
+  // Real-time Firestore Leaderboard subscription
+  useEffect(() => {
+    testFirestoreConnection();
+    const unsubscribe = subscribeToLeaderboard(
+      (records) => {
+        setLeaderboardRecords(records);
+        setIsLeaderboardLoading(false);
+      },
+      () => {
+        setIsLeaderboardLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  // Save current game record to Firestore Leaderboard
+  const saveRecordToDatabase = useCallback((reason: 'victory' | 'timeout' | 'lives') => {
+    if (!learnerNickname || score <= 0) return;
+
+    const answered = history.length;
+    const correct = history.filter((h) => h.isCorrect).length;
+    const accuracy = answered > 0 ? Math.round((correct / answered) * 100) : 0;
+
+    let stars = 1;
+    if (reason === 'victory' || score >= 2000) stars = 3;
+    else if (score >= 1000 || currentLevel >= 3) stars = 2;
+
+    let badgeTitle = '🎈 즐거운 낱말 탐험가';
+    if (stars === 3) badgeTitle = '👑 3학년 1학기 국어 어휘 대왕!';
+    else if (stars === 2) badgeTitle = '🌟 알쏭달쏭 낱말 박사!';
+    else badgeTitle = '🌱 쑥쑥 낱말 꿈나무!';
+
+    saveScoreToLeaderboard({
+      nickname: learnerNickname,
+      score,
+      stars,
+      accuracy,
+      maxCombo,
+      levelsCleared: currentLevel,
+      badgeTitle,
+      createdAt: new Date().toISOString(),
+    });
+  }, [learnerNickname, score, history, currentLevel, maxCombo]);
 
   // Toggle Mute
   const handleToggleMute = () => {
@@ -130,6 +186,7 @@ export default function App() {
             clearInterval(timerIntervalRef.current!);
             setGameOverReason('timeout');
             setGameState('GAME_OVER');
+            saveRecordToDatabase('timeout');
             return 0;
           }
           if (prev === 30 || prev === 10 || prev <= 5) {
@@ -147,7 +204,7 @@ export default function App() {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-  }, [gameState]);
+  }, [gameState, saveRecordToDatabase]);
 
   // Handle Option Select
   const handleSelectOption = (option: string) => {
@@ -225,6 +282,7 @@ export default function App() {
         setTimeout(() => {
           setGameOverReason('lives');
           setGameState('GAME_OVER');
+          saveRecordToDatabase('lives');
         }, 1200);
       }
     }
@@ -241,6 +299,7 @@ export default function App() {
     if (isGameFinished) {
       setGameOverReason('victory');
       setGameState('GAME_OVER');
+      saveRecordToDatabase('victory');
       return;
     }
 
@@ -314,6 +373,7 @@ export default function App() {
         onToggleMute={handleToggleMute}
         onOpenHelp={() => setShowInstructions(true)}
         onOpenNotebook={() => setShowReviewNotebook(true)}
+        onOpenLeaderboard={() => setShowLeaderboard(true)}
         hasHistory={history.length > 0}
         learnerNickname={learnerNickname}
         onLogout={handleLogout}
@@ -353,16 +413,31 @@ export default function App() {
                 3분 동안 5단계 레벨업에 도전하며 재미있게 낱말 퀴즈를 풀고 어휘력 왕관을 차지하세요!
               </p>
 
-              {/* High Score & Badge display */}
-              {highScore > 0 && (
-                <div className="inline-flex items-center gap-2 mt-4 px-4 py-1.5 bg-amber-50 rounded-2xl border border-amber-200 text-xs sm:text-sm font-bold text-amber-900">
-                  <Award className="w-4 h-4 text-amber-600" />
-                  <span>내 최고 기록:</span>
-                  <span className="font-jua text-base text-amber-700 font-extrabold tabular-nums">
-                    {highScore.toLocaleString()}점
-                  </span>
-                </div>
-              )}
+              {/* High Score & Live 1st Place Highlight */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+                {highScore > 0 && (
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-amber-50 rounded-2xl border border-amber-200 text-xs sm:text-sm font-bold text-amber-900">
+                    <Award className="w-4 h-4 text-amber-600" />
+                    <span>내 최고 기록:</span>
+                    <span className="font-jua text-base text-amber-700 font-extrabold tabular-nums">
+                      {highScore.toLocaleString()}점
+                    </span>
+                  </div>
+                )}
+
+                {leaderboardRecords.length > 0 && (
+                  <button
+                    onClick={() => {
+                      sounds.playPop();
+                      setShowLeaderboard(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-100 to-orange-100 hover:from-amber-200 hover:to-orange-200 rounded-2xl border border-amber-300 text-xs sm:text-sm font-bold text-amber-950 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <span>🥇 현재 1등: <strong>{leaderboardRecords[0].nickname}</strong> ({leaderboardRecords[0].score.toLocaleString()}점)</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-amber-700" />
+                  </button>
+                )}
+              </div>
 
               {/* 5-Level Curriculum Preview Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-2.5 my-6 text-left">
@@ -384,7 +459,7 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Primary Start Action */}
+              {/* Primary Start Action & Leaderboard Button */}
               <div className="space-y-3 pt-2">
                 <button
                   onClick={startNewGame}
@@ -392,6 +467,18 @@ export default function App() {
                 >
                   <Play className="w-7 h-7 fill-white" />
                   <span>3분 낱말 탐험 시작하기!</span>
+                </button>
+
+                {/* Direct Leaderboard Link on First Screen */}
+                <button
+                  onClick={() => {
+                    sounds.playPop();
+                    setShowLeaderboard(true);
+                  }}
+                  className="w-full max-w-md mx-auto flex items-center justify-center gap-2 py-3 px-6 bg-amber-100 hover:bg-amber-200 active:scale-98 text-amber-950 font-jua text-lg rounded-2xl border-2 border-amber-300 shadow-xs transition-all cursor-pointer"
+                >
+                  <Trophy className="w-5 h-5 text-amber-700 animate-bounce" />
+                  <span>🏆 실시간 명예의 전당 (리더보드 순위 보기)</span>
                 </button>
 
                 <div className="flex items-center justify-center gap-4 text-xs font-bold text-slate-500">
@@ -482,6 +569,7 @@ export default function App() {
           learnerNickname={learnerNickname}
           onRestart={startNewGame}
           onOpenNotebook={() => setShowReviewNotebook(true)}
+          onOpenLeaderboard={() => setShowLeaderboard(true)}
         />
       )}
 
@@ -490,6 +578,16 @@ export default function App() {
         <ReviewNotebookModal
           history={history}
           onClose={() => setShowReviewNotebook(false)}
+        />
+      )}
+
+      {/* Real-time Leaderboard Modal */}
+      {showLeaderboard && (
+        <LeaderboardModal
+          records={leaderboardRecords}
+          currentNickname={learnerNickname}
+          isLoading={isLeaderboardLoading}
+          onClose={() => setShowLeaderboard(false)}
         />
       )}
 

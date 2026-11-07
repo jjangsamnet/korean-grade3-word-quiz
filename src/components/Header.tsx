@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, HelpCircle, BookOpen } from 'lucide-react';
+import { Volume2, VolumeX, HelpCircle, BookOpen, Trophy } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 interface HeaderProps {
@@ -7,6 +7,7 @@ interface HeaderProps {
   onToggleMute: () => void;
   onOpenHelp: () => void;
   onOpenNotebook?: () => void;
+  onOpenLeaderboard?: () => void;
   hasHistory?: boolean;
   learnerNickname?: string | null;
   onLogout?: () => void;
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMute,
   onOpenHelp,
   onOpenNotebook,
+  onOpenLeaderboard,
   hasHistory = false,
   learnerNickname,
   onLogout,
@@ -61,6 +63,20 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <span className="md:hidden">[{learnerNickname}] </span>
             <span>변경</span>
+          </button>
+        )}
+
+        {onOpenLeaderboard && (
+          <button
+            onClick={() => {
+              sounds.playPop();
+              onOpenLeaderboard();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-950 rounded-xl border border-amber-400 shadow-2xs active:scale-95 transition-all whitespace-nowrap shrink-0 cursor-pointer"
+            title="실시간 리더보드 순위 보기"
+          >
+            <Trophy className="w-3.5 h-3.5 text-amber-700" />
+            <span className="hidden sm:inline">리더보드</span>
           </button>
         )}
 

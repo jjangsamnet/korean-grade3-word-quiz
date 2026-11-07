@@ -1,0 +1,6 @@
+{
+  "name": "초3 국어 낱말 탐험대",
+  "description": "초등학교 3학년 1학기 국어 교과서 연계 5단계 레벨업 낱말 맞추기 게임. 신나는 음향과 시각 효과, 3분 타임어택으로 어휘력을 키워요!",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
